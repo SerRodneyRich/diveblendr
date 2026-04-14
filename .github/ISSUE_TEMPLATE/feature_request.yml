@@ -1,0 +1,48 @@
+name: Feature Request
+description: Suggest a new calculation, tool, or improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        DiveBlendr prioritizes features that are useful to technical divers and backed by accepted diving standards. Please read [CONTRIBUTING.md](../CONTRIBUTING.md) before submitting.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve for a diver?
+      placeholder: "As a CCR trimix diver, I need to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      placeholder: Add a calculator that...
+    validations:
+      required: true
+
+  - type: textarea
+    id: standard
+    attributes:
+      label: Diving agency or standard that supports this
+      description: Which certification agencies or published research endorse this calculation or feature?
+      placeholder: "TDI / IANTD / NOAA / GUE / peer-reviewed paper..."
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Estimated complexity
+      options:
+        - Small (UI tweak, unit conversion)
+        - Medium (new calculation, new tool tab)
+        - Large (new dive mode, major algorithm change)
+        - Unknown
+
+  - type: checkboxes
+    id: willing-to-pr
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to submit a PR for this

@@ -1,0 +1,226 @@
+@import "tailwindcss";
+
+/* Hide reCAPTCHA v3 badge */
+.grecaptcha-badge {
+  visibility: hidden !important;
+}
+
+/* Custom Scrollbar - Site-wide */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #eab308 #1f2937;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #1f2937;
+  border-radius: 2px;
+  margin-left: 1px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #eab308;
+  border-radius: 2px;
+  border-left: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #fbbf24;
+}
+
+*::-webkit-scrollbar-corner {
+  background: #1f2937;
+}
+
+/* Enhanced Focus Indicators for Accessibility */
+/* Remove default browser focus outline */
+*:focus {
+  outline: none;
+}
+
+/* Apply consistent focus styling */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 2px solid #eab308;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(234, 179, 8, 0.3);
+}
+
+/* Special focus for interactive elements with custom styling */
+.focus\:ring-2:focus-visible {
+  ring-width: 2px;
+  ring-color: #eab308;
+  ring-opacity: 0.5;
+}
+
+/* High contrast focus for critical elements */
+.focus\:ring-yellow-400:focus-visible {
+  --tw-ring-color: rgb(250 204 21);
+  --tw-ring-opacity: 1;
+}
+
+/* Ensure focus is visible on all interactive elements */
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #eab308;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Screen reader only class */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Accessibility Enhancement Classes */
+
+/* High Contrast Mode */
+.high-contrast {
+  --tw-bg-white: #000000;
+  --tw-bg-black: #ffffff;
+  --tw-text-white: #ffffff;
+  --tw-text-black: #000000;
+  --tw-bg-gray-50: #000000;
+  --tw-bg-gray-100: #1a1a1a;
+  --tw-bg-gray-200: #333333;
+  --tw-bg-gray-800: #cccccc;
+  --tw-bg-gray-900: #ffffff;
+  --tw-text-gray-600: #ffffff;
+  --tw-text-gray-700: #ffffff;
+  --tw-text-gray-800: #ffffff;
+  --tw-text-gray-900: #000000;
+  --tw-border-gray-200: #ffffff;
+  --tw-border-gray-300: #ffffff;
+}
+
+.high-contrast * {
+  border-color: currentColor !important;
+}
+
+.high-contrast button,
+.high-contrast input,
+.high-contrast select,
+.high-contrast textarea {
+  border: 2px solid currentColor !important;
+  background-color: transparent !important;
+}
+
+.high-contrast button:hover {
+  background-color: currentColor !important;
+  color: var(--tw-bg-white) !important;
+}
+
+/* Font Size Classes */
+.font-large {
+  font-size: 125% !important;
+}
+
+.font-larger {
+  font-size: 150% !important;
+}
+
+.font-largest {
+  font-size: 200% !important;
+}
+
+/* Reduced Motion */
+.reduce-motion,
+.reduce-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Enhanced Focus Indicators */
+.enhanced-focus button:focus-visible,
+.enhanced-focus input:focus-visible,
+.enhanced-focus textarea:focus-visible,
+.enhanced-focus select:focus-visible,
+.enhanced-focus [tabindex]:focus-visible,
+.enhanced-focus [role="button"]:focus-visible,
+.enhanced-focus [role="tab"]:focus-visible {
+  outline: 4px solid #eab308 !important;
+  outline-offset: 4px !important;
+  box-shadow: 0 0 0 8px rgba(234, 179, 8, 0.5) !important;
+}
+
+.enhanced-focus a:focus-visible {
+  outline: 4px solid #eab308 !important;
+  outline-offset: 4px !important;
+  border-radius: 4px !important;
+}
+
+/* Screen Reader Optimized */
+.screen-reader-optimized .sr-only {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 0.25rem !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  clip: auto !important;
+  white-space: normal !important;
+  border: 1px solid #eab308 !important;
+  background-color: #1f2937 !important;
+  color: #eab308 !important;
+  font-size: 0.875rem !important;
+}
+
+/* Skip Navigation Links */
+.skip-nav {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #1e40af;
+  color: white;
+  padding: 8px;
+  text-decoration: none;
+  z-index: 9999;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.skip-nav:focus {
+  top: 6px;
+}
+
+/* Ensure good color contrast in high contrast mode */
+.high-contrast .bg-blue-600 {
+  background-color: #0000ff !important;
+  color: #ffffff !important;
+}
+
+.high-contrast .bg-yellow-500,
+.high-contrast .bg-yellow-600 {
+  background-color: #ffff00 !important;
+  color: #000000 !important;
+}
+
+.high-contrast .text-blue-600 {
+  color: #0000ff !important;
+}
+
+.high-contrast .text-yellow-500,
+.high-contrast .text-yellow-600 {
+  color: #ffff00 !important;
+}
