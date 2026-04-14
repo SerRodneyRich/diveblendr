@@ -19,7 +19,7 @@
     "@types/html2canvas": "^0.5.35",
     "@vercel/analytics": "^1.5.0",
     "chart.js": "^4.5.0",
-    "convert": "^5.12.0",
+    "convert": "^5.14.1",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "html2canvas": "^1.4.1",
     "katex": "^0.16.45",
