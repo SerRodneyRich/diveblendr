@@ -1,0 +1,26 @@
+{
+  "name": "DiveBlendr",
+  "short_name": "DiveBlendr",
+  "description": "Professional dive planning and blending application for technical divers",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#1e40af",
+  "categories": ["sports", "utilities"],
+  "scope": "/",
+  "icons": [
+    { "src": "/icons/icon128.png", "sizes": "128x128", "type": "image/png" },
+    { "src": "/icons/icon152.png", "sizes": "152x152", "type": "image/png" },
+    { "src": "/icons/icon167.png", "sizes": "167x167", "type": "image/png" },
+    { "src": "/icons/icon180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/icons/icon192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon128.png", "sizes": "128x128", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon152.png", "sizes": "152x152", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon167.png", "sizes": "167x167", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon180.png", "sizes": "180x180", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
