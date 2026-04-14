@@ -1,0 +1,79 @@
+name: Bug Report
+description: Report incorrect behavior or a calculation error
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **DiveBlendr is a safety-critical tool.** If this bug could lead to an incorrect gas mix or dangerous depth recommendation, please also add the `safety-critical` label.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected Area
+      options:
+        - Gas blending calculation
+        - MOD calculation
+        - END calculation
+        - Gas density
+        - CNS% estimate
+        - SAC / Bottom Time calculator
+        - Marine Conditions
+        - Photo Correction
+        - PWA / install / offline
+        - UI / display issue
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: gas-mix
+    attributes:
+      label: Gas Mix (if calculation bug)
+      description: "e.g. 21% O2 / 35% He / 44% N2, target depth 60m, PPO2 1.4"
+      placeholder: O2: __% / He: __% / N2: __%, depth: __m, PPO2: __
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What DiveBlendr calculated
+      placeholder: DiveBlendr showed...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: Include the source/standard if this is a calculation bug (NOAA, TDI, GUE, etc.)
+      placeholder: Expected result is... (source: ...)
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to...
+        2. Enter...
+        3. See...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: dive-mode
+    attributes:
+      label: Dive Mode
+      options:
+        - OC Nitrox
+        - OC Trimix
+        - CCR Nitrox
+        - CCR Trimix
+        - Not applicable
+
+  - type: input
+    id: environment
+    attributes:
+      label: Browser / Device
+      placeholder: "e.g. Chrome 124 / iPhone 15 / macOS"

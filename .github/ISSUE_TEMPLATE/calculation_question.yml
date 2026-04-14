@@ -1,0 +1,29 @@
+name: Calculation Question
+description: Ask about a specific calculation result or methodology
+labels: ["question", "needs-citation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for questions about *why* DiveBlendr calculates something a certain way, or to propose an alternative methodology with a citation.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      placeholder: "Why does DiveBlendr calculate END as... when agency X says it should be..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: Reference / Standard
+      description: Link or cite the diving standard, textbook, or agency guideline you are referencing
+      placeholder: "NOAA Diving Manual 6th ed., Chapter X / TDI MOD 2 manual / Mitchell & Vrijdag 2016..."
+
+  - type: textarea
+    id: gas-mix
+    attributes:
+      label: Gas mix and depth (if applicable)
+      placeholder: "O2: __% / He: __% / N2: __%, depth: __m"

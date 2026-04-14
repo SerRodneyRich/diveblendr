@@ -97,7 +97,7 @@ Core calculations use Van der Waals corrections (`src/utils/vanDeWaalsPhysics.ts
 
 ## Tech Stack Quick Reference
 
-- **Next.js 15.5.2** with App Router and `output: export` (static site)
+- **Next.js 15.5.15** with App Router and `output: export` (static site)
 - **TypeScript** strict mode — no `any` types in calculation code
 - **Tailwind CSS v4**
 - **React 19**
