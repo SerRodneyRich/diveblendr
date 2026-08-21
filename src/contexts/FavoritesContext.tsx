@@ -41,15 +41,13 @@ export const FavoritesProvider: React.FC<FavoritesProviderProps> = ({ children }
     try {
       if (typeof window !== 'undefined') {
         const savedFavorites = localStorage.getItem('diveblendr-favorites');
-        console.log('Loading favorites from localStorage:', savedFavorites);
         if (savedFavorites) {
-          const parsed = JSON.parse(savedFavorites);
-          console.log('Parsed favorites:', parsed);
-          setFavorites(parsed);
+          setFavorites(JSON.parse(savedFavorites));
         }
       }
-    } catch (error) {
-      console.error('Failed to parse favorite locations:', error);
+    } catch {
+      // A corrupt entry is not worth failing the app over — the diver
+      // starts with an empty list, which is recoverable by re-saving.
     }
     setIsLoaded(true);
   }, []);
@@ -57,7 +55,6 @@ export const FavoritesProvider: React.FC<FavoritesProviderProps> = ({ children }
   // Save favorites to localStorage when they change (but not on initial load)
   useEffect(() => {
     if (isLoaded && typeof window !== 'undefined') {
-      console.log('Saving favorites to localStorage:', favorites);
       localStorage.setItem('diveblendr-favorites', JSON.stringify(favorites));
     }
   }, [favorites, isLoaded]);

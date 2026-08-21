@@ -1,12 +1,71 @@
 'use client'
 
 import React, { memo } from 'react'
+import type { TooltipItem } from 'chart.js'
 import { GiWaves } from 'react-icons/gi'
 import { FaArrowLeft, FaArrowRight } from 'react-icons/fa'
 import { useUnitConversion } from '@/hooks/useUnitConversion'
+import type { TideDay } from '@/lib/conditions/tides'
 
-// Lazy load Chart.js components
-const Chart = React.lazy(() => import('react-chartjs-2').then(module => ({ default: module.Line })))
+/**
+ * Chart.js is loaded lazily, but deliberately *not* via `React.lazy` +
+ * `next/dynamic` + a bare `await import()` stacked on top of each other.
+ *
+ * That earlier arrangement nested three independent lazy-loading mechanisms
+ * around the same two packages: the page wrapped this component in
+ * `dynamic(..., {ssr:false})`, this module wrapped `react-chartjs-2` in
+ * `React.lazy`, and `registerChart()` separately `await import`ed `chart.js`
+ * for its side effect. Each layer creates its own webpack chunk edge, and
+ * `chart.js`/`react-chartjs-2` share internals — so the chunk graph contained a
+ * cycle whose resolution order depended on which module happened to be
+ * instantiated first. When the prerenderer lost that race, the shared chunk was
+ * still a partially-initialised module object and webpack's runtime `require`
+ * returned `undefined`, producing the intermittent
+ * "Cannot read properties of undefined (reading 'call')" export failure.
+ *
+ * One import site, resolved once, removes the race: both packages come from a
+ * single `Promise.all` and the component only renders after it settles.
+ */
+type LineComponent = typeof import('react-chartjs-2')['Line']
+
+let chartModulesPromise: Promise<LineComponent> | null = null
+
+const loadChart = (): Promise<LineComponent> => {
+  // Cached so remounts reuse the resolved module instead of racing a new import.
+  if (!chartModulesPromise) {
+    chartModulesPromise = Promise.all([
+      import('chart.js'),
+      import('react-chartjs-2'),
+    ]).then(([chartModule, reactChartModule]) => {
+      const {
+        Chart: ChartJS,
+        CategoryScale,
+        LinearScale,
+        PointElement,
+        LineElement,
+        Title,
+        Tooltip,
+        Legend,
+      } = chartModule
+
+      // register() is idempotent for a given set of components, and the cached
+      // promise means this runs once per page load anyway.
+      ChartJS.register(
+        CategoryScale,
+        LinearScale,
+        PointElement,
+        LineElement,
+        Title,
+        Tooltip,
+        Legend,
+        backgroundZonesPlugin
+      )
+
+      return reactChartModule.Line
+    })
+  }
+  return chartModulesPromise
+}
 
 // Types for the background zones plugin
 interface BackgroundZone {
@@ -51,78 +110,42 @@ const backgroundZonesPlugin = {
   }
 }
 
-// Register Chart.js components only when needed
-let chartRegistered = false
-const registerChart = async () => {
-  if (chartRegistered) return
-  
-  const chartModule = await import('chart.js')
-  const {
-    Chart: ChartJS,
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend,
-  } = chartModule
-  
-  ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend,
-    backgroundZonesPlugin
-  )
-  
-  chartRegistered = true
-}
-
 interface TideChartProps {
-  tideData: {
-    hours: number[]
-    heights: number[]
-    extremes: Array<{time: number, height: number, type: 'high' | 'low'}>
-    date: Date
-    isRealData?: boolean
-    availableDateRange?: {
-      startDate: Date
-      endDate: Date
-    }
-    sunData?: {
-      sunrise: Date
-      sunset: Date
-    }
-  }
+  tideData: TideDay
   selectedDate: Date
   onNavigateDate: (direction: 'prev' | 'next') => void
 }
 
 const TideChart = memo(({ tideData, selectedDate, onNavigateDate }: TideChartProps) => {
   const { convertDepth, preferences } = useUnitConversion()
-  const [chartReady, setChartReady] = React.useState(false)
+  // Holding the component itself (rather than a "ready" boolean) means there is
+  // no window where chartReady is true but the module is not actually resolved.
+  const [Chart, setChart] = React.useState<LineComponent | null>(null)
   
   // Check if navigation should be disabled
   const canNavigatePrev = React.useMemo(() => {
-    if (!tideData.availableDateRange) return false // Allow navigation for synthetic data
+    if (!tideData.availableDateRange) return false // No range known yet; leave navigation enabled
     const prevDate = new Date(selectedDate)
     prevDate.setDate(prevDate.getDate() - 1)
     return prevDate >= new Date(tideData.availableDateRange.startDate.toDateString())
   }, [selectedDate, tideData.availableDateRange])
   
   const canNavigateNext = React.useMemo(() => {
-    if (!tideData.availableDateRange) return false // Allow navigation for synthetic data
+    if (!tideData.availableDateRange) return false // No range known yet; leave navigation enabled
     const nextDate = new Date(selectedDate)
     nextDate.setDate(nextDate.getDate() + 1)
     return nextDate <= new Date(tideData.availableDateRange.endDate.toDateString())
   }, [selectedDate, tideData.availableDateRange])
 
   React.useEffect(() => {
-    registerChart().then(() => setChartReady(true))
+    let active = true
+    loadChart().then((Line) => {
+      // Guard against setting state after unmount (e.g. fast route changes).
+      if (active) setChart(() => Line)
+    })
+    return () => {
+      active = false
+    }
   }, [])
 
   const getTideChartData = () => {
@@ -187,7 +210,7 @@ const TideChart = memo(({ tideData, selectedDate, onNavigateDate }: TideChartPro
         },
         title: {
           display: true,
-          text: `${tideData.isRealData ? 'Real' : 'Synthetic'} Tide Chart - ${selectedDate.toLocaleDateString('en-US', { 
+          text: `Tide Chart - ${selectedDate.toLocaleDateString(undefined, { 
             weekday: 'long', 
             year: 'numeric', 
             month: 'long', 
@@ -201,8 +224,10 @@ const TideChart = memo(({ tideData, selectedDate, onNavigateDate }: TideChartPro
         },
         tooltip: {
           callbacks: {
-            label: function(context: {parsed: {y: number}}) {
-              return `${context.parsed.y.toFixed(2)}${preferences.depth === 'meters' ? 'm' : 'ft'}`
+            label: function(context: TooltipItem<'line'>) {
+              const value = context.parsed.y
+              if (value === null || value === undefined) return ''
+              return `${value.toFixed(2)}${preferences.depth === 'meters' ? 'm' : 'ft'}`
             }
           }
         },
@@ -250,16 +275,15 @@ const TideChart = memo(({ tideData, selectedDate, onNavigateDate }: TideChartPro
     <div className="bg-black/40 backdrop-blur-sm border border-white/20 rounded-lg p-6 shadow-xl">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
-          <h3 className="text-xl font-semibold text-blue-300 flex items-center gap-2">
+          <h3 className="text-xl font-semibold text-brand flex items-center gap-2">
             <GiWaves />
             Tide Chart
           </h3>
-          <span className={`text-xs px-2 py-1 rounded ${
-            tideData.isRealData 
-              ? 'bg-green-600 text-green-100' 
-              : 'bg-orange-600 text-orange-100'
-          }`}>
-            {tideData.isRealData ? 'Real Data' : 'Synthetic'}
+          {/* `bg-success text-success` painted the label in its own background
+              colour, so the chip read as a blank green rectangle. The tinted
+              background token is `success-bg`. */}
+          <span className="rounded border border-success-border bg-success-bg px-2 py-1 text-xs text-success">
+            Real data
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -268,23 +292,23 @@ const TideChart = memo(({ tideData, selectedDate, onNavigateDate }: TideChartPro
             disabled={!canNavigatePrev}
             className={`p-2 rounded-lg transition-colors ${
               canNavigatePrev 
-                ? 'bg-gray-600 hover:bg-gray-500 text-white' 
-                : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                ? 'bg-surface-3 hover:bg-surface-3 text-text' 
+                : 'bg-surface-1 text-text-subtle cursor-not-allowed'
             }`}
             title={canNavigatePrev ? "Previous day" : "No more data available"}
           >
             <FaArrowLeft />
           </button>
-          <span className="text-gray-300 px-3 py-1 bg-gray-700 rounded">
-            {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          <span className="text-text px-3 py-1 bg-surface-2 rounded">
+            {selectedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
           </span>
           <button
             onClick={() => canNavigateNext && onNavigateDate('next')}
             disabled={!canNavigateNext}
             className={`p-2 rounded-lg transition-colors ${
               canNavigateNext 
-                ? 'bg-gray-600 hover:bg-gray-500 text-white' 
-                : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                ? 'bg-surface-3 hover:bg-surface-3 text-text' 
+                : 'bg-surface-1 text-text-subtle cursor-not-allowed'
             }`}
             title={canNavigateNext ? "Next day" : "No more data available"}
           >
@@ -295,19 +319,15 @@ const TideChart = memo(({ tideData, selectedDate, onNavigateDate }: TideChartPro
       
       {/* Chart Container */}
       <div className="h-64 mb-4">
-        {chartReady ? (
-          <React.Suspense fallback={
-            <div className="h-full flex items-center justify-center bg-black/60 backdrop-blur-sm rounded border border-white/20">
-              <div className="animate-spin w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full"></div>
-            </div>
-          }>
-            <Chart key={chartKey} data={getTideChartData()} options={getChartOptions()} />
-          </React.Suspense>
+        {/* No Suspense boundary: Chart is a fully resolved component by the
+            time it is non-null, not a lazy one, so there is nothing to suspend. */}
+        {Chart ? (
+          <Chart key={chartKey} data={getTideChartData()} options={getChartOptions()} />
         ) : (
           <div className="h-full flex items-center justify-center bg-black/60 backdrop-blur-sm rounded border border-white/20">
             <div className="text-center">
-              <div className="animate-spin w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full mx-auto mb-2"></div>
-              <div className="text-gray-300 text-sm">Loading chart...</div>
+              <div className="animate-spin w-8 h-8 border-4 border-brand-muted border-t-transparent rounded-full mx-auto mb-2"></div>
+              <div className="text-text text-sm">Loading chart...</div>
             </div>
           </div>
         )}
@@ -317,52 +337,49 @@ const TideChart = memo(({ tideData, selectedDate, onNavigateDate }: TideChartPro
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {tideData.extremes.map((extreme: {time: number, height: number, type: 'high' | 'low'}, index: number) => (
           <div key={index} className="bg-black/60 backdrop-blur-sm border border-white/30 rounded p-3 text-center">
-            <div className={`text-lg font-semibold ${extreme.type === 'high' ? 'text-blue-300' : 'text-green-300'}`}>
+            <div className={`text-lg font-semibold ${extreme.type === 'high' ? 'text-brand' : 'text-success'}`}>
               {extreme.type === 'high' ? '⬆️ High' : '⬇️ Low'}
             </div>
-            <div className="text-white font-medium">
+            <div className="text-text font-medium">
               {extreme.time.toString().padStart(2, '0')}:00
             </div>
-            <div className="text-gray-400 text-sm">
+            <div className="text-text-muted text-sm">
               {convertDepth(extreme.height, 2).formatted}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Tide Info */}
-      <div className="mt-4 p-3 bg-blue-900/60 backdrop-blur-sm rounded border border-blue-400/50">
-        <p className="text-blue-200 text-sm mb-2">
-          <strong>💡 Diving Tip:</strong> Best diving conditions are typically during slack tide periods 
-          (30 minutes before and after high/low tide) when currents are weakest.
-        </p>
-{tideData.isRealData ? (
-          <div className="space-y-1">
-            <p className="text-green-200 text-xs">
-              <strong>✅ Real tide data:</strong> Based on Open-Meteo marine model (8km resolution). 
-              Not suitable for coastal navigation - verify locally before diving.
-            </p>
-{tideData.availableDateRange && (
-              <p className="text-green-100 text-xs">
-                <strong>📅 Data available:</strong> {' '}
-                {tideData.availableDateRange.startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {' '}
-                {tideData.availableDateRange.endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </p>
-            )}
-            {tideData.sunData && (
-              <p className="text-yellow-100 text-xs">
-                <strong>🌅 Sunrise:</strong> {tideData.sunData.sunrise.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} | {' '}
-                <strong>🌇 Sunset:</strong> {tideData.sunData.sunset.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-              </p>
-            )}
-          </div>
-        ) : (
-          <p className="text-orange-200 text-xs">
-            <strong>⚠️ Synthetic data:</strong> Realistic tide patterns for demonstration. 
-            Real tide data not available for this location.
-          </p>
-        )}
-      </div>
+      {/* Sun times and the forecast window stay on the chart: a diver timing
+          slack water reads them together with the tide, so they are part of the
+          answer rather than a note about it. The model's provenance and the
+          slack-water tip are in the page's message bar. */}
+      {(tideData.availableDateRange || tideData.sunData) && (
+        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 border-t border-border pt-3 text-xs text-text-muted">
+          {tideData.sunData && (
+            <span>
+              Sunrise{' '}
+              <span className="text-text">
+                {tideData.sunData.sunrise.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+              </span>
+              {' · '}Sunset{' '}
+              <span className="text-text">
+                {tideData.sunData.sunset.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+              </span>
+            </span>
+          )}
+          {tideData.availableDateRange && (
+            <span>
+              Forecast{' '}
+              <span className="text-text">
+                {tideData.availableDateRange.startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                {' – '}
+                {tideData.availableDateRange.endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              </span>
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 })

@@ -13,12 +13,14 @@ Thank you for your interest in contributing. DiveBlendr is a technical diving to
 ```bash
 git clone https://github.com/SerRodneyRich/Diveblendr.git
 cd Diveblendr
-npm install
-cp .env.example .env.local   # fill in your own keys, or leave blank for calc-only work
-npm run dev                  # http://localhost:3000
+pnpm install
+cp .env.example .env.local   # optional — every variable can be left blank
+pnpm dev                     # http://localhost:3000
 ```
 
-The app is fully functional for all gas calculations without any API keys. Keys are only needed for analytics, contact form, and PWA features.
+This project uses **pnpm**. If you don't have it: `npm install -g pnpm`.
+
+The app is fully functional without any API keys — every environment variable is optional and configures analytics or search-engine verification only. If you are working on calculations, you need none of them.
 
 ## Submitting a Pull Request
 
@@ -26,8 +28,9 @@ The app is fully functional for all gas calculations without any API keys. Keys 
 2. Make your changes
 3. Run the checks:
    ```bash
-   npm run lint
-   rm -rf .next && npm run build   # must pass all 9 pages
+   pnpm lint
+   pnpm test                       # calculation changes MUST come with tests
+   rm -rf .next out && pnpm build  # static export must complete
    ```
 4. Commit with a clear message: `fix: correct END calculation for O2-narcotic model`
 5. Push and open a PR — describe **what** you changed and **why**

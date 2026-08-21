@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'dev/**']
+  pull_request:
+    branches: [main, 'dev/**']
+
+# A newer push to the same branch supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build (static export)
+        run: pnpm build
+
+      # The build has historically failed non-deterministically during
+      # prerender rather than at compile time, so assert the artifacts
+      # actually exist instead of trusting the exit code alone.
+      - name: Verify every route was exported
+        run: |
+          set -euo pipefail
+          for page in index planner/index gas-planning/index mix/index mix/check/index \
+                      blender/index sac/index conditions/index photo/index share/index \
+                      links/index calculator/index; do
+            if [ ! -f "out/${page}.html" ]; then
+              echo "::error::Missing exported page: out/${page}.html"
+              ls -R out | head -50
+              exit 1
+            fi
+            echo "ok: out/${page}.html"
+          done
+
+      - name: Verify the service worker was generated
+        run: |
+          set -euo pipefail
+          if [ ! -f out/sw.js ]; then
+            echo "::error::out/sw.js missing — offline support would be broken"
+            exit 1
+          fi
+          if ! grep -q "precache" out/sw.js; then
+            echo "::error::out/sw.js has no precache manifest"
+            exit 1
+          fi
+          echo "ok: out/sw.js contains a precache manifest"

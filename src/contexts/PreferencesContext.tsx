@@ -85,8 +85,9 @@ export const PreferencesProvider: React.FC<PreferencesProviderProps> = ({ childr
         try {
           const parsed = JSON.parse(savedPreferences);
           setPreferences({ ...defaultPreferences, ...parsed });
-        } catch (error) {
-          console.error('Failed to parse diver preferences:', error);
+        } catch {
+          // Corrupt or unreadable storage falls back to the defaults rather
+          // than failing the app; the diver's next change re-saves cleanly.
         }
       }
     }

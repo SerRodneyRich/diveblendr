@@ -1,4 +1,4 @@
-import { useUnits, UnitPreferences } from '../contexts/UnitsContext';
+import { useUnits } from '../contexts/UnitsContext';
 import convert from 'convert';
 
 interface ConversionResult {

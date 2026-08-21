@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useCallback } from 'react';
-import { FiSettings, FiX, FiDownload, FiUpload, FiTrash2, FiEdit2, FiPlus, FiAlertTriangle } from 'react-icons/fi';
+import { FiDownload, FiUpload, FiTrash2, FiEdit2, FiPlus, FiAlertTriangle } from 'react-icons/fi';
+import { Modal, SegmentedControl, Tabs } from '@/components/ui';
 import { usePreferences } from '../contexts/PreferencesContext';
 import {
   exportAllPreferences,
@@ -10,6 +11,7 @@ import {
   getLastExportDate,
   recordExportDate,
 } from '../utils/preferencesBackup';
+import { SAFETY_LIMIT_RANGES } from '@/lib/limits';
 import type { CustomTankSpecification } from '../contexts/PreferencesContext';
 
 interface PreferencesModalProps {
@@ -20,11 +22,11 @@ interface PreferencesModalProps {
 
 type TabId = 'profile' | 'safety' | 'tanks' | 'backup';
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'profile', label: 'Dive Profile' },
-  { id: 'safety', label: 'Safety Limits' },
-  { id: 'tanks', label: 'Custom Tanks' },
-  { id: 'backup', label: 'Backup / Restore' },
+const TABS: { value: TabId; label: string }[] = [
+  { value: 'profile', label: 'Dive profile' },
+  { value: 'safety', label: 'Safety limits' },
+  { value: 'tanks', label: 'Custom tanks' },
+  { value: 'backup', label: 'Backup' },
 ];
 
 // ─── Blank tank form state ────────────────────────────────────────────────────
@@ -56,10 +58,10 @@ const blankTankForm = (): TankFormState => ({
 
 // ─── Shared input class helpers ───────────────────────────────────────────────
 const inputCls =
-  'bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 w-full';
+  'bg-surface-2 border border-border-strong rounded px-3 py-1.5 text-text text-sm focus:outline-none focus:ring-2 focus:ring-brand w-full';
 
 const sliderCls =
-  'w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-yellow-500';
+  'w-full h-2 bg-surface-3 rounded-lg appearance-none cursor-pointer accent-brand';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose, initialTab }) => {
@@ -95,9 +97,6 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Handlers: Dive Profile ──────────────────────────────────────────────────
-  const handleDiveMode = (mode: 'oc' | 'oc-trimix' | 'ccr' | 'ccr-trimix') =>
-    updatePreferences({ diveMode: mode });
-
   const handleGasType = (gasType: 'nitrox' | 'trimix') =>
     updatePreferences({ gasType });
 
@@ -222,125 +221,66 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
     ? new Date(lastExportDate).toLocaleString()
     : null;
 
-  if (!isOpen) return null;
-
   // ── Render ──────────────────────────────────────────────────────────────────
+  // The shell is the shared Modal + Tabs primitives. It was previously a
+  // hand-rolled `fixed inset-0 bg-black bg-opacity-50` dialog on gray-800 with
+  // yellow-600 tabs — the pre-rebuild palette, with no focus trap, no Escape
+  // handling and no restore of focus on close. Every one of those comes from
+  // Modal for free, and the surfaces now follow the same tokens as the rest of
+  // the app rather than a second, unrelated theme.
   return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-labelledby="preferences-modal-title"
-      aria-modal="true"
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Diver preferences"
+      description="Defaults and safety limits. Every tool reads these."
+      size="lg"
+      bodyClassName="p-0"
     >
-      <div className="bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700 flex-shrink-0">
-          <h2
-            id="preferences-modal-title"
-            className="text-xl font-bold text-white flex items-center gap-2"
-          >
-            <FiSettings className="w-5 h-5 text-yellow-400" />
-            Diver Preferences
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-gray-400 hover:text-white"
-            aria-label="Close preferences"
-          >
-            <FiX className="w-5 h-5" />
-          </button>
-        </div>
+      <Tabs
+        items={TABS}
+        value={activeTab}
+        onChange={setActiveTab}
+        ariaLabel="Preference sections"
+        variant="pill"
+        className="px-4 pt-1"
+      />
 
-        {/* Tab bar */}
-        <div className="flex border-b border-gray-700 flex-shrink-0 overflow-x-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-yellow-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-              }`}
-              aria-selected={activeTab === tab.id}
-              role="tab"
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Scrollable tab content */}
-        <div className="overflow-y-auto flex-1 p-6">
+      {/* Scrollable tab content */}
+      <div className="p-4 sm:p-6">
           {/* ── Tab 1: Dive Profile ──────────────────────────────────────── */}
           {activeTab === 'profile' && (
             <div className="space-y-6">
-              {/* Default Dive Mode */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-white">Default Dive Mode</label>
-                <p className="text-xs text-gray-400">
-                  The dive mode pre-selected when you open the calculator.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      { value: 'oc', label: 'OC Nitrox' },
-                      { value: 'oc-trimix', label: 'OC Trimix' },
-                      { value: 'ccr', label: 'CCR' },
-                      { value: 'ccr-trimix', label: 'CCR Trimix' },
-                    ] as const
-                  ).map(({ value, label }) => (
-                    <button
-                      key={value}
-                      onClick={() => handleDiveMode(value)}
-                      aria-pressed={preferences.diveMode === value}
-                      className={`py-2 px-3 text-sm rounded border transition-colors ${
-                        preferences.diveMode === value
-                          ? 'bg-yellow-600 text-white border-yellow-600'
-                          : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 hover:text-white'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Dive mode is not repeated here. It lives in the sidebar
+                  footer (and the mobile More sheet) as live app-wide state,
+                  and a second control for the same preference — one labelled
+                  "default", one not — left divers unsure which one the tools
+                  were actually reading. There is one value; it has one home. */}
 
               {/* Default Gas Type */}
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-white">Default Gas Type</label>
-                <p className="text-xs text-gray-400">
+                <label className="block text-sm font-semibold text-text">Default gas type</label>
+                <p className="text-xs text-text-muted">
                   Whether the calculator defaults to a nitrox or trimix blend.
                 </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      { value: 'nitrox', label: 'Nitrox' },
-                      { value: 'trimix', label: 'Trimix' },
-                    ] as const
-                  ).map(({ value, label }) => (
-                    <button
-                      key={value}
-                      onClick={() => handleGasType(value)}
-                      aria-pressed={preferences.gasType === value}
-                      className={`py-2 px-3 text-sm rounded border transition-colors ${
-                        preferences.gasType === value
-                          ? 'bg-yellow-600 text-white border-yellow-600'
-                          : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 hover:text-white'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl<'nitrox' | 'trimix'>
+                  ariaLabel="Default gas type"
+                  value={preferences.gasType}
+                  onChange={handleGasType}
+                  fullWidth
+                  options={[
+                    { value: 'nitrox', label: 'Nitrox' },
+                    { value: 'trimix', label: 'Trimix' },
+                  ]}
+                />
               </div>
 
               {/* Default Target MOD */}
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-white" htmlFor="default-mod">
+                <label className="block text-sm font-semibold text-text" htmlFor="default-mod">
                   Default Target MOD (m)
                 </label>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-text-muted">
                   The Maximum Operating Depth pre-filled in the MOD calculator (10–100 m).
                 </p>
                 <input
@@ -362,10 +302,10 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
 
               {/* Default Desired PPO₂ */}
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-white" htmlFor="default-ppo2">
+                <label className="block text-sm font-semibold text-text" htmlFor="default-ppo2">
                   Default Desired PPO&#8322;
                 </label>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-text-muted">
                   The target partial pressure of oxygen pre-filled when planning a gas mix (0.9–1.6 bar).
                 </p>
                 <input
@@ -391,68 +331,64 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
           {activeTab === 'safety' && (
             <div className="space-y-6">
               {/* Max PPO₂ Working */}
+              {/* Every range comes from SAFETY_LIMIT_RANGES rather than being
+                  restated here. Hand-copied bounds had drifted: the density
+                  slider reached 7.0 g/L where the library caps it at 6.2, so
+                  the modal offered a value its own validator rejects. */}
               <SliderRow
                 id="ppo2-work"
-                label="Max PPO&#8322; (Working)"
-                description="Maximum partial pressure of oxygen during working dives. IANTD/PADI standard is 1.4 bar."
-                min={1.2}
-                max={1.6}
-                step={0.05}
+                label="Max ppO₂ (working)"
+                description="Oxygen partial pressure ceiling for the working portion of a dive. 1.4 bar is the limit essentially every technical agency teaches (NOAA, TDI, IANTD, GUE)."
+                {...SAFETY_LIMIT_RANGES.maxPPO2Work}
                 value={preferences.maxPPO2Work}
                 onChange={handleSafetyNumber('maxPPO2Work')}
-                unit="bar"
               />
 
-              {/* Max PPO₂ Deco */}
               <SliderRow
                 id="ppo2-deco"
-                label="Max PPO&#8322; (Deco)"
-                description="Maximum partial pressure of oxygen during decompression stops. Most agencies allow up to 1.6 bar."
-                min={1.4}
-                max={1.6}
-                step={0.05}
+                label="Max ppO₂ (deco)"
+                description="Ceiling on decompression stops, where the higher exposure is accepted at rest. 1.6 bar is the accepted contingency ceiling."
+                {...SAFETY_LIMIT_RANGES.maxPPO2Deco}
                 value={preferences.maxPPO2Deco}
                 onChange={handleSafetyNumber('maxPPO2Deco')}
-                unit="bar"
               />
 
-              {/* Max PPO₂ CCR */}
               <SliderRow
                 id="ppo2-ccr"
-                label="Max PPO&#8322; (CCR)"
-                description="Set-point ceiling for closed-circuit rebreather operation. IANTD recommends 1.3 bar."
-                min={1.1}
-                max={1.4}
-                step={0.05}
+                label="Max ppO₂ (CCR setpoint)"
+                description="Working setpoint ceiling on a rebreather. 1.3 bar is standard TDI/IANTD CCR practice."
+                {...SAFETY_LIMIT_RANGES.maxPPO2CCR}
                 value={preferences.maxPPO2CCR}
                 onChange={handleSafetyNumber('maxPPO2CCR')}
-                unit="bar"
               />
 
-              {/* Max Gas Density */}
               <SliderRow
                 id="gas-density"
-                label="Max Gas Density (g/L)"
-                description="Gas density limit above which breathing effort becomes dangerous. NEDU threshold is 5.7 g/L (caution) and 6.2 g/L (critical)."
-                min={4.0}
-                max={7.0}
-                step={0.1}
+                label="Gas density — target"
+                description="Where the app starts warning about work of breathing. Anthony & Mitchell (2016) give 5.2 g/L as the ideal target; the default here is 5.7."
+                {...SAFETY_LIMIT_RANGES.maxGasDensity}
                 value={preferences.maxGasDensity}
                 onChange={handleSafetyNumber('maxGasDensity')}
-                unit="g/L"
               />
 
-              {/* Max END */}
+              {/* The critical threshold had no control at all, so the target
+                  could be raised above it and the two would invert. */}
+              <SliderRow
+                id="gas-density-critical"
+                label="Gas density — do not exceed"
+                description="The hard ceiling. Anthony & Mitchell (2016) give 6.2 g/L, adopted by NEDU and widely taught. Never below the target above."
+                {...SAFETY_LIMIT_RANGES.maxGasDensityCritical}
+                value={preferences.maxGasDensityCritical}
+                onChange={handleSafetyNumber('maxGasDensityCritical')}
+              />
+
               <SliderRow
                 id="max-end"
-                label="Max END (m)"
-                description="Maximum Equivalent Narcotic Depth. Most agencies recommend 30 m for trimix planning."
-                min={20}
-                max={40}
-                step={1}
+                label="Max END"
+                description="Equivalent narcotic depth ceiling for a bottom mix. 30 m is the conventional working limit (IANTD, GUE, TDI)."
+                {...SAFETY_LIMIT_RANGES.maxEND}
                 value={preferences.maxEND}
                 onChange={handleSafetyNumber('maxEND')}
-                unit="m"
               />
 
               {/* Oxygen Narcosis Model */}
@@ -462,17 +398,17 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
                     type="checkbox"
                     checked={preferences.oxygenNarcosisModel}
                     onChange={(e) => updatePreferences({ oxygenNarcosisModel: e.target.checked })}
-                    className="w-4 h-4 mt-0.5 accent-yellow-500 flex-shrink-0"
+                    className="w-4 h-4 mt-0.5 accent-brand flex-shrink-0"
                     id="o2-narcosis"
                   />
                   <div>
-                    <span className="text-sm font-semibold text-white block">
+                    <span className="text-sm font-semibold text-text block">
                       Oxygen Narcosis Model
                     </span>
-                    <span className="text-xs text-gray-400 block mt-0.5">
-                      When <strong className="text-gray-300">enabled</strong>: O&#8322; is treated as narcotic in END
+                    <span className="text-xs text-text-muted block mt-0.5">
+                      When <strong className="text-text">enabled</strong>: O&#8322; is treated as narcotic in END
                       calculations (NOAA / DCIEM model — more conservative).<br />
-                      When <strong className="text-gray-300">disabled</strong>: only N&#8322; contributes to narcosis
+                      When <strong className="text-text">disabled</strong>: only N&#8322; contributes to narcosis
                       (IANTD / GUE standard — industry default).
                     </span>
                   </div>
@@ -480,14 +416,14 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
               </div>
 
               {/* Reset to defaults */}
-              <div className="pt-2 border-t border-gray-700">
+              <div className="pt-2 border-t border-border">
                 <button
                   onClick={() => {
                     if (window.confirm('Reset all preferences to factory defaults? This cannot be undone.')) {
                       resetToDefaults();
                     }
                   }}
-                  className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white text-sm rounded transition-colors"
+                  className="px-4 py-2 bg-danger hover:bg-danger text-text text-sm rounded transition-colors"
                 >
                   Reset All Preferences to Defaults
                 </button>
@@ -499,7 +435,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
           {activeTab === 'tanks' && (
             <div className="space-y-4">
               {preferences.customTanks.length === 0 && !showAddForm && (
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-text-muted">
                   No custom tanks yet. Add a tank below to use it in the calculator.
                 </p>
               )}
@@ -507,8 +443,8 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
               {/* Tank table */}
               {preferences.customTanks.length > 0 && (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left text-gray-300">
-                    <thead className="text-xs text-gray-400 uppercase border-b border-gray-700">
+                  <table className="w-full text-sm text-left text-text">
+                    <thead className="text-xs text-text-muted uppercase border-b border-border">
                       <tr>
                         <th className="py-2 pr-3">Name</th>
                         <th className="py-2 pr-3">Volume (L)</th>
@@ -520,8 +456,8 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
                     </thead>
                     <tbody className="divide-y divide-gray-700">
                       {preferences.customTanks.map((tank) => (
-                        <tr key={tank.id} className="hover:bg-gray-750">
-                          <td className="py-2 pr-3 font-medium text-white">{tank.name}</td>
+                        <tr key={tank.id} className="hover:bg-surface-2">
+                          <td className="py-2 pr-3 font-medium text-text">{tank.name}</td>
                           <td className="py-2 pr-3">{tank.waterVolumeL}</td>
                           <td className="py-2 pr-3">{tank.workingPressureBar}</td>
                           <td className="py-2 pr-3 capitalize">{tank.material}</td>
@@ -529,7 +465,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
                           <td className="py-2 flex items-center gap-2">
                             <button
                               onClick={() => handleEditTank(tank)}
-                              className="p-1.5 rounded bg-gray-600 hover:bg-gray-500 text-white transition-colors"
+                              className="p-1.5 rounded bg-surface-3 hover:bg-surface-3 text-text transition-colors"
                               aria-label={`Edit ${tank.name}`}
                             >
                               <FiEdit2 className="w-3.5 h-3.5" />
@@ -540,7 +476,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
                                   removeCustomTank(tank.id);
                                 }
                               }}
-                              className="p-1.5 rounded bg-red-700 hover:bg-red-600 text-white transition-colors"
+                              className="p-1.5 rounded bg-danger hover:bg-danger text-text transition-colors"
                               aria-label={`Delete ${tank.name}`}
                             >
                               <FiTrash2 className="w-3.5 h-3.5" />
@@ -555,15 +491,15 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
 
               {/* Add / Edit form */}
               {showAddForm ? (
-                <div className="border border-gray-700 rounded-lg p-4 space-y-4 bg-gray-750">
-                  <h3 className="text-sm font-semibold text-white">
+                <div className="border border-border rounded-lg p-4 space-y-4 bg-surface-1">
+                  <h3 className="text-sm font-semibold text-text">
                     {editingTankId ? 'Edit Tank' : 'Add New Tank'}
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
                     {/* Name */}
                     <div className="col-span-2 space-y-1">
-                      <label className="text-xs text-gray-400" htmlFor="tank-name">
-                        Tank Name <span className="text-red-400">*</span>
+                      <label className="text-xs text-text-muted" htmlFor="tank-name">
+                        Tank Name <span className="text-danger">*</span>
                       </label>
                       <input
                         id="tank-name"
@@ -574,13 +510,13 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
                         className={inputCls}
                       />
                       {tankErrors.name && (
-                        <p className="text-xs text-red-400">{tankErrors.name}</p>
+                        <p className="text-xs text-danger">{tankErrors.name}</p>
                       )}
                     </div>
 
                     {/* Common Name */}
                     <div className="col-span-2 space-y-1">
-                      <label className="text-xs text-gray-400" htmlFor="tank-common-name">
+                      <label className="text-xs text-text-muted" htmlFor="tank-common-name">
                         Common Name
                       </label>
                       <input
@@ -595,8 +531,8 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
 
                     {/* Water Volume L */}
                     <div className="space-y-1">
-                      <label className="text-xs text-gray-400" htmlFor="tank-vol-l">
-                        Water Volume (L) <span className="text-red-400">*</span>
+                      <label className="text-xs text-text-muted" htmlFor="tank-vol-l">
+                        Water Volume (L) <span className="text-danger">*</span>
                       </label>
                       <input
                         id="tank-vol-l"
@@ -609,13 +545,13 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
                         className={inputCls}
                       />
                       {tankErrors.volume && (
-                        <p className="text-xs text-red-400">{tankErrors.volume}</p>
+                        <p className="text-xs text-danger">{tankErrors.volume}</p>
                       )}
                     </div>
 
                     {/* Water Volume CuFt */}
                     <div className="space-y-1">
-                      <label className="text-xs text-gray-400" htmlFor="tank-vol-cuft">
+                      <label className="text-xs text-text-muted" htmlFor="tank-vol-cuft">
                         Water Volume (cu ft)
                       </label>
                       <input
@@ -632,7 +568,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
 
                     {/* Working Pressure Bar */}
                     <div className="space-y-1">
-                      <label className="text-xs text-gray-400" htmlFor="tank-bar">
+                      <label className="text-xs text-text-muted" htmlFor="tank-bar">
                         Working Pressure (bar)
                       </label>
                       <input
@@ -649,7 +585,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
 
                     {/* Working Pressure PSI (auto-calc) */}
                     <div className="space-y-1">
-                      <label className="text-xs text-gray-400" htmlFor="tank-psi">
+                      <label className="text-xs text-text-muted" htmlFor="tank-psi">
                         Working Pressure (PSI) — auto
                       </label>
                       <input
@@ -666,7 +602,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
 
                     {/* Material */}
                     <div className="space-y-1">
-                      <label className="text-xs text-gray-400" htmlFor="tank-material">
+                      <label className="text-xs text-text-muted" htmlFor="tank-material">
                         Material
                       </label>
                       <select
@@ -683,7 +619,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
 
                     {/* Type */}
                     <div className="space-y-1">
-                      <label className="text-xs text-gray-400" htmlFor="tank-type">
+                      <label className="text-xs text-text-muted" htmlFor="tank-type">
                         Type
                       </label>
                       <select
@@ -699,7 +635,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
 
                     {/* Region */}
                     <div className="space-y-1">
-                      <label className="text-xs text-gray-400" htmlFor="tank-region">
+                      <label className="text-xs text-text-muted" htmlFor="tank-region">
                         Region
                       </label>
                       <select
@@ -716,7 +652,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
 
                     {/* Notes */}
                     <div className="col-span-2 space-y-1">
-                      <label className="text-xs text-gray-400" htmlFor="tank-notes">
+                      <label className="text-xs text-text-muted" htmlFor="tank-notes">
                         Notes (optional)
                       </label>
                       <input
@@ -733,13 +669,13 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
                   <div className="flex gap-2 pt-2">
                     <button
                       onClick={editingTankId ? handleSaveEditTank : handleAddTank}
-                      className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white text-sm rounded transition-colors font-medium"
+                      className="px-4 py-2 bg-brand hover:bg-brand-strong text-text text-sm rounded transition-colors font-medium"
                     >
                       {editingTankId ? 'Save Changes' : 'Add Tank'}
                     </button>
                     <button
                       onClick={handleCancelTankForm}
-                      className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors"
+                      className="px-4 py-2 bg-surface-3 hover:bg-surface-3 text-text text-sm rounded transition-colors"
                     >
                       Cancel
                     </button>
@@ -752,7 +688,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
                     setEditingTankId(null);
                     setTankForm(blankTankForm());
                   }}
-                  className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white text-sm rounded transition-colors font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand hover:bg-brand-strong text-text text-sm rounded transition-colors font-medium"
                 >
                   <FiPlus className="w-4 h-4" />
                   Add Tank
@@ -766,38 +702,38 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
             <div className="space-y-6">
               {/* Export section */}
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-white">Backup your preferences</h3>
-                <p className="text-xs text-gray-400">
+                <h3 className="text-sm font-semibold text-text">Backup your preferences</h3>
+                <p className="text-xs text-text-muted">
                   Download a JSON file containing all your preferences, custom tanks, and saved
                   settings. Keep this file somewhere safe so you can restore them later.
                 </p>
                 <button
                   onClick={handleExport}
-                  className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white text-sm rounded transition-colors font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand hover:bg-brand-strong text-text text-sm rounded transition-colors font-medium"
                 >
                   <FiDownload className="w-4 h-4" />
                   Export Preferences
                 </button>
                 {exportSuccess && (
-                  <p className="text-sm text-green-400">Preferences exported successfully.</p>
+                  <p className="text-sm text-success">Preferences exported successfully.</p>
                 )}
                 {formattedLastExport && (
-                  <p className="text-xs text-gray-400">
-                    Last exported: <span className="text-gray-300">{formattedLastExport}</span>
+                  <p className="text-xs text-text-muted">
+                    Last exported: <span className="text-text">{formattedLastExport}</span>
                   </p>
                 )}
               </div>
 
-              <div className="border-t border-gray-700" />
+              <div className="border-t border-border" />
 
               {/* Import section */}
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-white">Restore from backup</h3>
+                <h3 className="text-sm font-semibold text-text">Restore from backup</h3>
 
                 {/* Warning */}
-                <div className="flex items-start gap-2 p-3 bg-yellow-900 bg-opacity-40 border border-yellow-700 rounded-lg">
-                  <FiAlertTriangle className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-yellow-200">
+                <div className="flex items-start gap-2 p-3 bg-warning-bg bg-opacity-40 border border-warning-border rounded-lg">
+                  <FiAlertTriangle className="w-4 h-4 text-brand flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-warning">
                     Importing will <strong>overwrite</strong> your current preferences. A page
                     reload may be required for some settings to take full effect.
                   </p>
@@ -813,7 +749,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-surface-3 hover:bg-surface-3 text-text text-sm rounded transition-colors font-medium"
                 >
                   <FiUpload className="w-4 h-4" />
                   Import Preferences
@@ -824,8 +760,8 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
                   <div
                     className={`p-3 rounded-lg text-sm space-y-1 border ${
                       importResult.success
-                        ? 'bg-green-900 bg-opacity-40 border-green-700 text-green-200'
-                        : 'bg-red-900 bg-opacity-40 border-red-700 text-red-200'
+                        ? 'bg-success-bg bg-opacity-40 border-success-border text-success'
+                        : 'bg-danger-bg bg-opacity-40 border-danger-border text-danger'
                     }`}
                   >
                     {importResult.success ? (
@@ -850,19 +786,8 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onCl
               </div>
             </div>
           )}
-        </div>
-
-        {/* Footer close button */}
-        <div className="p-4 border-t border-gray-700 flex-shrink-0">
-          <button
-            onClick={onClose}
-            className="w-full py-2 px-4 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded transition-colors"
-          >
-            Close
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -892,7 +817,7 @@ const SliderRow: React.FC<SliderRowProps> = ({
 }) => (
   <div className="space-y-2">
     <div className="flex items-center justify-between">
-      <label htmlFor={id} className="text-sm font-semibold text-white">
+      <label htmlFor={id} className="text-sm font-semibold text-text">
         {/* Use dangerouslySetInnerHTML to render HTML entities in label prop */}
         <span dangerouslySetInnerHTML={{ __html: label }} />
       </label>
@@ -904,13 +829,13 @@ const SliderRow: React.FC<SliderRowProps> = ({
           step={step}
           value={value}
           onChange={onChange}
-          className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white text-sm w-20 text-right focus:outline-none focus:ring-2 focus:ring-yellow-500"
+          className="bg-surface-2 border border-border-strong rounded px-2 py-1 text-text text-sm w-20 text-right focus:outline-none focus:ring-2 focus:ring-brand"
           aria-label={`${label} value`}
         />
-        <span className="text-xs text-gray-400">{unit}</span>
+        <span className="text-xs text-text-muted">{unit}</span>
       </div>
     </div>
-    <p className="text-xs text-gray-400">{description}</p>
+    <p className="text-xs text-text-muted">{description}</p>
     <input
       id={id}
       type="range"
@@ -922,7 +847,7 @@ const SliderRow: React.FC<SliderRowProps> = ({
       className={sliderCls}
       aria-label={label}
     />
-    <div className="flex justify-between text-xs text-gray-500">
+    <div className="flex justify-between text-xs text-text-subtle">
       <span>{min} {unit}</span>
       <span>{max} {unit}</span>
     </div>

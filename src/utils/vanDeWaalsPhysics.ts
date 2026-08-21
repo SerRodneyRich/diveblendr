@@ -81,18 +81,35 @@ export const temperatureUtils = {
   isValidTemperature: (c: number): boolean => c >= -10 && c <= 50
 };
 
+/** A numerical result that reports whether the solver actually converged. */
+export interface ConvergenceResult {
+  value: number;
+  converged: boolean;
+  /** Iterations actually performed. */
+  iterations: number;
+}
+
 /**
- * Solve Van der Waals cubic for molar volume
+ * Solve the Van der Waals cubic for molar volume by Newton iteration.
+ *
+ * F9: this previously returned the last iterate with no convergence signal, so
+ * a caller could not distinguish a converged root from a value the solver had
+ * simply given up on. It now returns `{ value, converged, iterations }`; use
+ * {@link solveMolarVolume} for the bare value where the caller does not care.
  */
-export function solveMolarVolume(
+export function solveMolarVolumeChecked(
   pressure: number,
   temperatureK: number,
   constants: VanDerWaalsConstants,
   maxIterations = 50,
   tolerance = 1e-8
-): number {
+): ConvergenceResult {
   const { a, b } = constants;
   const RT = R_GAS_CONSTANT * temperatureK;
+
+  if (!isFinite(pressure) || pressure <= 0) {
+    return { value: Infinity, converged: false, iterations: 0 };
+  }
 
   let V = RT / pressure; // ideal guess
 
@@ -103,17 +120,42 @@ export function solveMolarVolume(
     const f = (pressure + a / V2) * (V - b) - RT;
     const df = pressure + a / V2 - (2 * a * (V - b)) / V3;
 
-    if (Math.abs(df) < tolerance) break;
+    // A vanishing derivative means Newton cannot make progress from here.
+    if (Math.abs(df) < tolerance) {
+      return { value: V, converged: false, iterations: i + 1 };
+    }
+
     const newV = V - f / df;
 
-    if (newV > b && Math.abs(newV - V) < tolerance) return newV;
+    if (newV > b && Math.abs(newV - V) < tolerance) {
+      return { value: newV, converged: true, iterations: i + 1 };
+    }
     if (newV <= b || !isFinite(newV)) {
+      // The step left the physically meaningful region (molar volume must
+      // exceed the excluded volume b); bisect back toward it instead.
       V = (V + b) / 2;
     } else {
       V = newV;
     }
   }
-  return V;
+
+  // Exhausted the iteration budget without meeting the tolerance.
+  return { value: V, converged: false, iterations: maxIterations };
+}
+
+/**
+ * Solve Van der Waals cubic for molar volume, returning the bare value.
+ * Prefer {@link solveMolarVolumeChecked} when the caller can act on
+ * non-convergence.
+ */
+export function solveMolarVolume(
+  pressure: number,
+  temperatureK: number,
+  constants: VanDerWaalsConstants,
+  maxIterations = 50,
+  tolerance = 1e-8
+): number {
+  return solveMolarVolumeChecked(pressure, temperatureK, constants, maxIterations, tolerance).value;
 }
 
 /**
@@ -132,7 +174,8 @@ export function stateFromPressure(
       molarVolume: Infinity,
       molesInTank: 0,
       compressibilityFactor: 1,
-      deviationPercent: 0
+      deviationPercent: 0,
+      converged: true
     };
   }
 
@@ -143,7 +186,8 @@ export function stateFromPressure(
   const T = temperatureUtils.celsiusToKelvin(temperatureCelsius);
   const constants = calculateMixtureConstants(mixture);
 
-  const Vm = solveMolarVolume(pressure, T, constants);
+  const solution = solveMolarVolumeChecked(pressure, T, constants);
+  const Vm = solution.value;
   const Z = (pressure * Vm) / (R_GAS_CONSTANT * T);
 
   const molesInTank = tankSize / Vm;
@@ -153,7 +197,10 @@ export function stateFromPressure(
     molarVolume: Vm,
     molesInTank,
     compressibilityFactor: Z,
-    deviationPercent: (Z - 1) * 100
+    deviationPercent: (Z - 1) * 100,
+    // F9: callers can now surface non-convergence as a blender warning rather
+    // than silently consuming a value the solver never settled on.
+    converged: solution.converged
   };
 }
 
@@ -173,19 +220,26 @@ export function pressureFromMoles(
   const constants = calculateMixtureConstants(mixture);
 
   const Vm = tankSize / moles;
-  
-  // Check if Van der Waals is physically meaningful
-  // If molar volume is too close to excluded volume, fall back to ideal gas
+
+  // Check if Van der Waals is physically meaningful. If the molar volume
+  // approaches the excluded volume b, the equation has no useful root.
+  //
+  // F9: this used to emit a console.warn and switch to the ideal gas law
+  // silently, mid-blend, which both violated the no-console rule and produced
+  // a discontinuity between consecutive step pressures. The fallback value is
+  // unchanged, but the switch is now reported through `converged: false` so
+  // callers can decide once per blend rather than being surprised per step.
+  // `src/lib/blending.ts` selects the equation of state up front for exactly
+  // this reason.
   if (Vm <= constants.b * 1.1) {
-    // Fall back to ideal gas law: PV = nRT → P = nRT/V
     const P_ideal = (moles * R_GAS_CONSTANT * T) / tankSize;
-    console.warn(`Van der Waals unphysical for small tank (${tankSize}L) with ${moles.toFixed(3)} moles - using ideal gas approximation`);
-    
+
     return {
       pressureBar: P_ideal,
       molarVolume: Vm,
       compressibilityFactor: 1.0, // Ideal gas has Z = 1
-      deviationPercent: 0.0       // No deviation for ideal gas fallback
+      deviationPercent: 0.0,      // No deviation for ideal gas fallback
+      converged: false
     };
   }
 
@@ -196,7 +250,8 @@ export function pressureFromMoles(
     pressureBar: P,
     molarVolume: Vm,
     compressibilityFactor: Z,
-    deviationPercent: (Z - 1) * 100
+    deviationPercent: (Z - 1) * 100,
+    converged: true
   };
 }
 

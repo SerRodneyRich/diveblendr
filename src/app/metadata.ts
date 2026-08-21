@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
 
+/**
+ * Site-wide metadata, rendered into <head> by Next via the re-export in
+ * `layout.tsx`. Individual routes override title and description in their own
+ * `layout.tsx`; everything else here is inherited.
+ */
+
 export const metadata: Metadata = {
   title: "DiveBlendr - A Custom Blend of Technical Diving Tools",
   description:
@@ -26,6 +32,7 @@ export const metadata: Metadata = {
     "helium calculation",
     "oxygen calculation",
     "bottom time calculator",
+    "minimum gas calculator",
     "air consumption calculator",
     "RMV calculator",
     "respiratory minute volume",
@@ -39,6 +46,7 @@ export const metadata: Metadata = {
     "CCR diving",
     "open circuit diving",
     "progressive web app diving",
+    "dive share card",
     "technical diving resources"
   ],
   authors: [{ name: "DiveBlendr" }],
@@ -46,17 +54,21 @@ export const metadata: Metadata = {
   publisher: "DiveBlendr",
   category: "Technical Diving Tools",
   classification: "Technical Diving Software",
+  metadataBase: new URL("https://diveblendr.com"),
   openGraph: {
-    title: "DiveBlendr - Technical Diving Gas Calculator",
-    description: "Professional gas mixing calculator for nitrox, trimix, MOD calculations, and technical diving planning",
+    title: "DiveBlendr — technical diving tools that show their working",
+    description:
+      "Best mix, MOD checks against oxygen, narcosis and density together, real-gas blending and consumption planning. Free, open source, and works offline.",
     type: "website",
     siteName: "DiveBlendr",
     locale: "en_US",
+    url: "https://diveblendr.com",
   },
   twitter: {
     card: "summary_large_image",
-    title: "DiveBlendr - Technical Diving Gas Calculator", 
-    description: "Professional gas mixing calculator for nitrox, trimix, MOD calculations, and technical diving planning",
+    title: "DiveBlendr — technical diving tools that show their working",
+    description:
+      "Best mix, MOD checks against oxygen, narcosis and density together, real-gas blending and consumption planning. Free, open source, and works offline.",
   },
   robots: {
     index: true,

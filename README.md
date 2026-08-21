@@ -1,206 +1,292 @@
 # DiveBlendr
 
-**A professional-grade technical diving gas calculator — open source, offline-capable, and built by a technical diver.**
+**Technical diving tools that show their working — open source, offline, no account.**
 
-[![Live App](https://img.shields.io/badge/Live%20App-diveblendr.com-blue?style=flat-square)](https://diveblendr.com)
+[![Live app](https://img.shields.io/badge/Live%20app-diveblendr.com-blue?style=flat-square)](https://diveblendr.com)
 [![License](https://img.shields.io/github/license/SerRodneyRich/Diveblendr?style=flat-square)](LICENSE)
 [![Issues](https://img.shields.io/github/issues/SerRodneyRich/Diveblendr?style=flat-square)](https://github.com/SerRodneyRich/Diveblendr/issues)
 [![Discussions](https://img.shields.io/github/discussions/SerRodneyRich/Diveblendr?style=flat-square)](https://github.com/SerRodneyRich/Diveblendr/discussions)
 
----
+DiveBlendr plans gas, not decompression — for now. It works out best mix, checks a
+gas against the depth you want it at, tells you what to put in the tank you already
+have, and does the consumption arithmetic. Every number traces to a published
+standard, and the app will show you the formula it used.
 
-## What is DiveBlendr?
+It runs entirely in your browser. Nothing is uploaded, there is no account, and
+after the first load it works with no internet at all — which is the state most
+dive sites are in.
 
-DiveBlendr is a [Progressive Web App](https://diveblendr.com) for planning technical dives. It handles gas mixing, MOD/END calculations, gas density warnings, and CNS% estimation — all running locally in your browser with no server required. Install it on your phone and use it offline at the dive site.
-
-Built by a JJ-CCR / TDI MOD 2 technical diver who wanted transparent, community-verifiable tools. Every calculation is open source — if the math is wrong, you can fix it.
-
----
-
-## Features
-
-### Gas Calculations
-- **MOD (Maximum Operating Depth)** — for any gas mix at any PPO₂ limit
-- **Trimix blending** — partial pressure fills for O₂/He/N₂ mixes
-- **Nitrox blending** — optimal oxygen percentage for target depth
-- **END (Equivalent Narcotic Depth)** — N₂-only (IANTD/GUE) or N₂+O₂ (NOAA/DCIEM) models
-- **Gas density analysis** — temperature-corrected, with Mitchell & Vrijdag warning thresholds
-- **CNS% estimate** — single-dive oxygen toxicity using NOAA exposure table
-
-### Dive Mode Support
-- Open Circuit Nitrox
-- Open Circuit Trimix
-- CCR (Closed Circuit Rebreather) Nitrox diluent
-- CCR Trimix diluent
-
-### Planning Tools
-- **SAC Calculator** — Surface Air Consumption rate
-- **Bottom Time Calculator** — gas consumption and dive time planning
-- **Tank Pressure Testing** — pressure testing and safety factors
-- **Marine Conditions** — tides, current, and visibility for dive sites
-
-### Safety
-- Real gas physics via Van der Waals equations (not ideal gas approximations)
-- Conservative rounding: O₂ rounds down, He rounds up, N₂ rounds down
-- User-configurable PPO₂ and gas density limits
-- Severity-based visual warnings (blue / yellow / red)
-
-### PWA
-- Installable on iOS, Android, macOS, and Windows
-- Fully offline after first load — all calculations work with no internet
+Built by a JJ-CCR / TDI MOD 2 diver who wanted tools he could audit.
 
 ---
 
-## Live Demo
+## Why it exists
 
-**[diveblendr.com](https://diveblendr.com)**
+Most gas planning tools give you a number and expect you to trust it. Two problems
+with that.
 
-No account, no signup, no data sent to any server.
+The first is that the number is often the wrong one. Ask most calculators for the
+maximum operating depth of air on a 1.30 bar CCR setpoint and you get 51 m — the
+depth where oxygen partial pressure hits the limit. But at 51 m that gas has an
+equivalent narcotic depth of 51 m against a 30 m limit, and a density of 7.2 g/L
+against a 5.7 g/L target. Its real limit is 30 m, bound by narcosis, and 51 m is a
+number that will hurt you. **DiveBlendr never shows an oxygen MOD as an operating
+depth.** It reports the shallowest of the oxygen, narcosis and density limits, and
+names which one binds.
+
+The second is that you cannot check it. Here you can: the maths is a few hundred
+lines of dependency-free TypeScript with tests next to it, every constant cites the
+agency or paper it came from, and the app renders the actual formula on screen.
+
+If the maths is wrong, [open an issue](https://github.com/SerRodneyRich/Diveblendr/issues)
+with the mix, the depth and what you expected. That is the entire point of doing
+this in the open.
 
 ---
 
-## Quick Start (Local Development)
+## What it does
+
+| Tool | What it answers |
+|---|---|
+| **Best mix** | The richest mix for a target depth, on OC or CCR, with the limit that binds it named |
+| **MOD check** | How deep a given gas may actually be taken — oxygen, narcosis and density together — plus CNS% for the exposure |
+| **Gas blender** | What to add to the gas already in the cylinder to reach a target mix, using real-gas (Van der Waals) partial pressures rather than ideal-gas approximations |
+| **Gas planning** | Bottom time, turn pressure and minimum gas from your consumption and reserve rules |
+| **SAC / RMV** | Surface air consumption and respiratory minute volume from a real dive |
+| **Conditions** | Tides, waves, current and sun times for a dive site, from the Open-Meteo marine model |
+| **Photo editor** | Underwater colour correction modelled on how water actually absorbs light, using the Jerlov optical water types |
+| **Share card** | Turns a Garmin `.fit` or Shearwater export into a shareable depth-profile graphic |
+
+Dive modes: open-circuit nitrox, open-circuit trimix, CCR with nitrox diluent, CCR
+with trimix diluent. Metric and imperial throughout — including inside the warning
+text, which is written in the units you actually dive.
+
+### Not ready yet
+
+**The decompression planner is in development and is not usable.** The Bühlmann
+ZHL-16C engine with gradient factors exists under `src/lib/deco/` and has 151 unit
+tests, but it has not yet been validated against an independent implementation
+across a full matrix of profiles. Until it has, the `/planner` route says so
+plainly rather than producing a schedule. Do not plan a dive on it.
+
+---
+
+## Try it
+
+**[diveblendr.com](https://diveblendr.com)** — installable on iOS, Android, macOS
+and Windows as a PWA. Add it to your home screen and it works offline.
+
+---
+
+## Running it locally
 
 ```bash
 git clone https://github.com/SerRodneyRich/Diveblendr.git
 cd Diveblendr
-npm install
-cp .env.example .env.local   # optional — see note below
-npm run dev
-# Open http://localhost:3000
+pnpm install
+pnpm dev            # http://localhost:3000
 ```
 
-**All gas calculations work without any API keys.** The `.env.local` keys are
-only needed for analytics, contact form, and PWA push features. For calculation
-work, skip `.env.local` entirely.
+This project uses **pnpm** (`pnpm-lock.yaml` is the lockfile). If you do not have
+it: `npm install -g pnpm`.
 
-### Build
+**No API keys are needed for anything.** Every environment variable in
+`.env.example` is optional and configures analytics or search-engine verification.
+Skip `.env.local` entirely — the calculations do not touch the network, and the
+conditions tool uses Open-Meteo's free, keyless API.
 
 ```bash
-npm run build    # production static export
-npm run lint     # ESLint checks
+pnpm test           # Vitest — the calculation suite
+pnpm test:watch
+pnpm lint
+pnpm build          # static export to out/, then the service worker
+npx tsc --noEmit    # typecheck
 ```
 
-Clean build (when stale cache causes issues):
-```bash
-rm -rf .next && npm run build
-```
+Stale cache causing trouble: `rm -rf .next out && pnpm build`.
 
 ---
 
-## Tech Stack
+## How it is built
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 15 (App Router, `output: export`) |
-| Language | TypeScript — strict mode, no `any` in calc code |
-| Styling | Tailwind CSS v4 |
-| Runtime | React 19 |
-| PWA | @ducanh2912/next-pwa |
-| Testing | Playwright (E2E) |
-| Deployment | Vercel (static CDN) |
+| Layer | Choice |
+|---|---|
+| Framework | Next.js 15, App Router, `output: export` |
+| Language | TypeScript, strict |
+| UI | React 19, Tailwind CSS v4 |
+| Charts | Chart.js |
+| Maths rendering | KaTeX, bundled — the formulas render offline too |
+| Testing | Vitest |
+| Hosting | Vercel, static CDN |
 
-The app is a fully static export — no server-side rendering, no API routes at runtime.
-It can be hosted on any CDN or served from a file system.
+The build is a fully static export: no server, no API routes, no runtime
+dependency on anything. Serve `out/` from any web server or a file system.
 
----
+The service worker is generated **after** the export by `scripts/build-sw.mjs`
+using workbox-build. Do not reintroduce a PWA webpack plugin — the header comment
+in that script explains what happened last time.
 
-## Calculation Standards
-
-These rules are non-negotiable and must be preserved in all contributions:
-
-### Conservative Rounding
-
-| Value | Direction | Reason |
-|-------|-----------|--------|
-| O₂ fraction | Round **down** | Prevents false safety margin at depth |
-| He fraction | Round **up** | Ensures minimum narcotic protection |
-| N₂ fraction | Round **down** | Conservative by design |
-
-Implemented in `src/utils/safeRounding.ts`.
-
-### PPO₂ Defaults
-
-| Mode | Default | Source |
-|------|---------|--------|
-| OC working | 1.4 ATA | NOAA / TDI |
-| OC deco | 1.6 ATA | NOAA / TDI |
-| CCR setpoint | 1.3 ATA | TDI MOD 2 |
-
-### Gas Density Thresholds
-
-- Warning: **5.7 g/L** — Mitchell & Vrijdag (2016)
-- Critical: **6.2 g/L** — DAN research
-
-All gas mixing calculations use Van der Waals real gas corrections.
-Ideal gas approximations are not acceptable for blending at pressure.
-
----
-
-## Project Structure
+### Layout
 
 ```
 src/
-├── app/                    # Next.js App Router pages
-│   ├── calculator/         # Main gas calculator
-│   ├── marine-conditions/  # Dive site conditions
-│   ├── bottom-time/        # Gas planning
-│   ├── photo-correction/   # Underwater photo tools
-│   └── tank-test/          # Pressure testing
-├── components/             # React components (45+)
-├── contexts/               # localStorage-backed React Contexts
-│   ├── PreferencesContext  # Dive mode, safety limits, custom tanks
-│   ├── UnitsContext        # Metric / imperial
-│   ├── AccessibilityContext
-│   └── FavoritesContext    # Saved locations
-└── utils/                  # Core calculation libraries
-    ├── realGasBlending_v3  # Gas mixing engine (Van der Waals)
-    ├── endModCalculations  # MOD, END, gas density, CNS%
-    ├── safeRounding        # Conservative rounding
-    └── vanDeWaalsPhysics   # Real gas physics
+├── lib/              # All calculation code. Pure, framework-free, tested.
+│   ├── deco/         # Bühlmann ZHL-16C + gradient factors (in development)
+│   ├── dive/         # Dive-log parsing: Garmin .fit, Shearwater CSV/XML
+│   ├── photo/        # Underwater colour correction, Jerlov water types
+│   ├── conditions/   # Tide series handling
+│   ├── gas.ts        # MOD, END, density, CNS
+│   ├── blending.ts   # Real-gas blending
+│   ├── operatingDepth.ts   # The shallowest binding limit
+│   ├── limits.ts     # Every threshold, each with its source cited
+│   └── warnings.ts   # Warning text, unit-aware
+├── components/       # React components, incl. the ui/ primitive library
+├── contexts/         # Preferences, Units, Accessibility, Favorites
+├── config/           # Navigation
+└── app/(tools)/      # One route per tool, inside the app shell
 ```
+
+Calculation code imports no React and prints nothing to the console. If it cannot
+be tested from a plain Node process, it is in the wrong directory.
+
+---
+
+## The standards it follows
+
+Every threshold below is in [`src/lib/limits.ts`](src/lib/limits.ts) with its
+source in a comment, and every one is configurable in the app's preferences.
+
+### Oxygen
+
+| Setting | Default | Source |
+|---|---|---|
+| OC working ppO₂ | 1.40 bar | NOAA / TDI |
+| OC deco ceiling | 1.60 bar | NOAA / TDI |
+| CCR setpoint | 1.30 bar | TDI / IANTD CCR practice |
+| Hypoxia floor | 0.16 bar | Below this, risk of losing consciousness |
+
+Partial pressures are stated in **bar in both unit systems**, because that is how
+every agency, table and dive computer states them. A ppO₂ in psi is a number no
+diver would recognise inside a safety warning.
+
+CNS% comes from the NOAA oxygen exposure table.
+
+### Gas density
+
+| Threshold | Value | Source |
+|---|---|---|
+| Warning | 5.7 g/L | App default, between the two figures below |
+| Do not exceed | 6.2 g/L | Anthony & Mitchell (2016), the hard ceiling |
+
+Anthony & Mitchell, *Respiratory physiology of rebreather diving* (2016), adopted
+by NEDU and widely taught, gives **5.2 g/L as the ideal target** and **6.2 g/L as
+the do-not-exceed ceiling**. DiveBlendr warns at 5.7 g/L by default — between the
+two — and the threshold is configurable, so set it to 5.2 if that is how you were
+taught. Density is temperature-corrected.
+
+### Narcosis
+
+Equivalent narcotic depth defaults to the **nitrogen-only** model (IANTD / GUE
+convention). The NOAA / DCIEM model, which counts oxygen as narcotic too, is
+available as an option.
+
+### Conservative rounding
+
+Rounding direction is a safety decision, not a formatting one.
+
+| Value | Direction | Why |
+|---|---|---|
+| MOD | **Down** | Never round a depth limit deeper than the maths allows |
+| END | **Up** | Never round a narcosis estimate shallower than it is |
+| O₂ fraction | **Down** | A richer mix than calculated shortens the MOD you planned |
+| He fraction | **Up** | Keeps at least the narcotic protection you planned for |
+
+**Never make a limit less conservative** without the maintainer explicitly asking.
+
+### Where the analysis is done
+
+END, density and CNS are evaluated at **the depth the diver asked for**, never at
+the operating depth. Clamping them to the operating depth makes every gas look
+clean by construction — that depth was chosen *because* it satisfies the limits —
+and silently deletes the breach warnings. This was nearly shipped once; there are
+now permanent tests in both directions.
 
 ---
 
 ## Contributing
 
-See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the full guide.
+Full guide in **[CONTRIBUTING.md](CONTRIBUTING.md)**. The short version:
 
-The short version:
+1. **Found a wrong number?** Open an [issue](https://github.com/SerRodneyRich/Diveblendr/issues)
+   with the exact mix, depth, dive mode and units, what DiveBlendr said, and what
+   you expected. Those are the most valuable reports this project gets.
+2. **Fixing something?** Fork, branch, PR. **Any change to a calculation must cite
+   its source** — NOAA, Bühlmann, Baker, or a named agency standard — in a code
+   comment, and must come with a test.
+3. **Proposing a feature?** [Discussions](https://github.com/SerRodneyRich/Diveblendr/discussions)
+   first, before writing code.
 
-1. **Report a bug** — open an [Issue](https://github.com/SerRodneyRich/Diveblendr/issues) with the exact gas mix, depth, and what you expected vs. what DiveBlendr calculated
-2. **Fix something** — fork, branch, change, PR. Calculation changes must cite a diving standard (NOAA, TDI, IANTD, PADI, GUE)
-3. **Propose a feature** — use [Discussions](https://github.com/SerRodneyRich/Diveblendr/discussions) before writing code
+A test that passes is not the bar. The whole calculation suite was green while the
+MOD check page displayed air to 51 m on a rebreather: every function was correct
+and the page rendered the wrong field. Anything safety-critical needs a test
+against the **rendered output**, and the test must be shown to fail if the defect
+is reintroduced.
 
-### Areas that need help
+### Where help is wanted
 
-- MOD 3+ trimix (beyond 100 m) — the author's cert level is MOD 2
-- Decompression algorithm integration (VPM-B, Bühlmann)
-- E2E test coverage (Playwright is set up, tests are sparse)
-- Metric/imperial edge cases
-
----
-
-## Safety Disclaimer
-
-DiveBlendr is a planning and educational tool. **All calculations must be verified with certified dive planning software and your instructor before use in actual diving operations.** Technical diving requires proper training and certification. The authors accept no responsibility for decisions made based on these calculations.
-
-Gas calculation PRs are reviewed against NOAA, TDI, IANTD, and PADI standards before merging.
-
----
-
-## A Note on Claude Code
-
-DiveBlendr was built by hand by a working technical diver. [Claude Code](https://claude.com/claude-code) (Anthropic's AI coding assistant) has been used to augment development, audit calculations, review pull requests, and maintain code quality. Claude now actively assists with issues, discussions, and PRs — providing a second set of eyes for accountability on safety-critical calculation changes.
-
-This means when you open an issue or PR, responses and reviews may come from the maintainer working alongside Claude. All merges are approved by the human maintainer.
+- **Validating the deco engine.** The highest-value contribution available. Compare
+  `src/lib/deco/` against an independent implementation across a matrix of profiles
+  and report the divergences.
+- **Trimix beyond 100 m.** The maintainer's certification stops at MOD 2.
+- **Dive computer formats** beyond Garmin `.fit` and Shearwater.
+- **Metric/imperial edge cases** — walk a tool end to end in feet and report what
+  reads wrong.
 
 ---
 
-## License
+## Licence and attribution
 
-[GNU General Public License v3.0](LICENSE) — free to use, study, and fork. Any derivative work must also be open source under the same license. Commercial exploitation without releasing source is not permitted.
+[GNU General Public License v3.0](LICENSE). Free to use, study, modify and fork;
+any derivative must also be GPL-3.0. Commercial use without releasing source is not
+permitted.
+
+[`NOTICE.md`](NOTICE.md) credits the work this stands on: **DecoTengu** (Artur
+Wroblewski, GPL-3.0) as the deco engine's port source, **Erik Baker**'s papers on
+M-values and gradient factors, **Bühlmann**'s ZH-L16, the **NOAA Diving Manual**,
+and **Doolette & Mitchell**.
+
+Note for contributors: **do not copy code from Subsurface.** It is GPL-2.0-only,
+which is incompatible with this repository's GPL-3.0. It may be used as a
+validation oracle — comparing outputs — but not as a source of code.
 
 ---
 
-*Built by a technical diver, for technical divers. The math is open — if you see something wrong, fix it.*
+## On how this was built
+
+DiveBlendr is written by its maintainer working with Claude (Anthropic's AI
+assistant). That is stated plainly because you should know how a tool you might
+trust underwater was made.
+
+What matters is not who typed a line but whether it is right, and whether you can
+check it. So: every constant cites a source, every calculation has tests, the tests
+are shown to fail when the defect they guard against is reintroduced, and all of it
+is in this repository for you to read. The failure mode of AI-written code is
+plausible-looking work that is subtly wrong — which is also the failure mode of
+tired human code, and the answer is the same either way. Verify it.
+
+A human maintainer approves every merge.
+
+---
+
+## Safety
+
+**DiveBlendr is planning and educational software. It is not a dive computer.**
+
+Verify every calculation with certified dive planning software and your instructor
+before using it in the water. Technical diving requires proper training and
+certification. The authors accept no responsibility for decisions made from these
+calculations.
+
+---
+
+*The maths is open. If you see something wrong, say so.*

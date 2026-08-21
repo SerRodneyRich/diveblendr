@@ -3,6 +3,14 @@ node_modules
 .next/
 out/
 
+# Generated service worker artifacts (built by scripts/build-sw.mjs on postbuild).
+# These are build output, not source — the source of truth is scripts/build-sw.mjs.
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/sw-assets.json
+
 # Environment variables
 .env.local
 .env.development.local
@@ -17,3 +25,14 @@ tsconfig.tsbuildinfo
 
 # Debug scripts
 debug*.cjs
+
+# webshot CLI breakpoint captures — tool output, regenerated on demand
+webshot-sizes/
+
+# Agent working files. CLAUDE.md is instructions for AI assistants working on
+# this repo, not documentation for contributors — CONTRIBUTING.md and the
+# docs/plans/ specs are the human-facing versions. Listed explicitly rather
+# than relying on `.claude/` matching it, which only happens to work because
+# core.ignorecase is true on this filesystem and would not on Linux or CI.
+.claude/
+/CLAUDE.md

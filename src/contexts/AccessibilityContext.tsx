@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-// import { announce } from '@react-aria/live-announcer';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { announce } from '@react-aria/live-announcer';
 
 export interface AccessibilitySettings {
   highContrast: boolean;
@@ -14,7 +14,7 @@ export interface AccessibilitySettings {
 interface AccessibilityContextType {
   settings: AccessibilitySettings;
   updateSettings: (newSettings: Partial<AccessibilitySettings>) => void;
-  announceToScreenReader: (message: string) => void;
+  announceToScreenReader: (message: string, priority?: 'polite' | 'assertive') => void;
   isAccessibilityMode: boolean;
 }
 
@@ -51,8 +51,9 @@ export const AccessibilityProvider: React.FC<AccessibilityProviderProps> = ({ ch
         try {
           const parsed = JSON.parse(savedSettings);
           setSettings({ ...defaultSettings, ...parsed });
-        } catch (error) {
-          console.error('Failed to parse accessibility settings:', error);
+        } catch {
+          // Unreadable storage falls back to the defaults rather than
+          // failing the app.
         }
       }
 
@@ -102,10 +103,25 @@ export const AccessibilityProvider: React.FC<AccessibilityProviderProps> = ({ ch
     setSettings(current => ({ ...current, ...newSettings }));
   };
 
-  const announceToScreenReader = (message: string) => {
-    // announce(message);
-    console.log('Screen reader announcement:', message);
-  };
+  /**
+   * Announce a calculation result or state change to assistive technology.
+   *
+   * Was previously a `console.log` stub, so no announcement ever reached a
+   * screen reader. Now backed by @react-aria/live-announcer, which manages a
+   * pair of visually-hidden live regions outside React's tree — the reliable
+   * way to get a message spoken without a live region being remounted (a
+   * remounted region is frequently missed).
+   *
+   * Use `assertive` only for a safety limit being breached; results and status
+   * changes should stay `polite` so they do not interrupt what is being read.
+   */
+  const announceToScreenReader = useCallback(
+    (message: string, priority: 'polite' | 'assertive' = 'polite') => {
+      if (typeof window === 'undefined' || !message) return;
+      announce(message, priority);
+    },
+    []
+  );
 
   const isAccessibilityMode = Object.values(settings).some(value => 
     typeof value === 'boolean' ? value : value !== 'normal'
