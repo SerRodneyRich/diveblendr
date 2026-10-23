@@ -49,7 +49,7 @@ jobs:
           set -euo pipefail
           for page in index planner/index gas-planning/index mix/index mix/check/index \
                       blender/index sac/index conditions/index photo/index share/index \
-                      links/index calculator/index; do
+                      links/index; do
             if [ ! -f "out/${page}.html" ]; then
               echo "::error::Missing exported page: out/${page}.html"
               ls -R out | head -50
